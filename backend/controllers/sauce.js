@@ -7,18 +7,18 @@ const { json } = require('express/lib/response');
 
 
 exports.createSauce = (req, res, next) => {
-    const sauceObject = JSON.parse(req.body.sauce);
-    // notre id sera généré automatiquement par la base de donnée
-    delete sauceObject._id;
+    let sauceObject = JSON.parse(req.body.sauce);
+    console.log(sauceObject);
     // on va utiliser le userId qui vient du token d'authentification donc on ne fait pas confiance à celui envoyé par le client
     delete sauceObject._userId;
     // On créé une nouvelle instance du modèle 'Sauce'
-    const sauce = new Sauce({
+    let sauce = new Sauce({
         ...sauceObject,
-        // on génère un userId en utilisant le token d'authentification
+        // on récupère le userId en utilisant le token d'authentification
         userId: req.auth.userId,
         imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
     });
+    console.log(sauce);
     sauce.save()
         .then(() => {
             res.status(201).json({ message: 'Sauce enregistrée !' });
@@ -26,11 +26,12 @@ exports.createSauce = (req, res, next) => {
         })
         .catch(error => {
             res.status(400).json({ error });
-            console.log('Erreur');
+            console.log(error);
         });
 };
 
 exports.getOneSauce = (req, res, next) => {
+    console.log(req.params.id);
     Sauce.findOne({
             _id: req.params.id
         })
@@ -47,7 +48,8 @@ exports.modifySauce = (req, res, next) => {
         ...JSON.parse(req.body.sauce),
         imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
     } : {...req.body };
-
+    // supprimer les images non utilisées sur le serveur si l'image a été modifiée
+    // voir ce qui est dans la requête (le body) pour voir ce qui est modifié
     delete sauceObject._userId;
     Sauce.findOne({ _id: req.params.id })
         .then((sauce) => {
@@ -74,16 +76,16 @@ exports.deleteSauce = (req, res, next) => {
             } else {
                 // on récupère le nom du fichier image pour pouvoir le supprimer avec unlink (fonction asynchrone) ...
                 const filename = sauce.imageUrl.split('/images/')[1];
-                fs.unlink(`images/${filename}`, () => {
-                    // ... et on exécute le callback qui supprimera la sauce de la base de donnée
-                    Sauce.deleteOne({ _id: req.params.id })
-                        .then(() => {
+                // une fois supprimée de la base de donnée, on peut supprimer sur le serveur
+                Sauce.deleteOne({ _id: req.params.id })
+                    .then(() => {
+                        fs.unlink(`images/${filename}`, () => {
                             res.status(200).json({ message: "Sauce supprimée !" });
                         })
-                        .catch(error => {
-                            res.status(400).json({ error });
-                        })
-                })
+                    })
+                    .catch(error => {
+                        res.status(400).json({ error });
+                    })
             }
         })
         .catch((error) => {
@@ -97,73 +99,61 @@ exports.getAllSauces = (req, res, next) => {
         .catch(error => res.status(400).json({ error }))
 };
 
+// JSON.parse car le front envoie la requête au format json
+// faire un console.log de req.body pour voir ce qu'il contient
 exports.likeSauce = (req, res, next) => {
+    console.log('req.body :')
+    console.log(req.body);
+    const sauceObject = req.body;
+
     // on commence par récupérer la sauce
     Sauce.findOne({
             _id: req.params.id
         })
         .then((sauce) => {
-            res.status(200).json(sauce);
-            //L'utilisateur ne peut pas liker ou disliker ses propres sauces
-            if (userId === req.params.id) {
-                res.status(401).json({ message: "Vous ne pouvez pas noter vos propres sauces !" });
-            } else {
-                if (req.params.like === 1) {
-                    sauce.updateOne({ _id: req.params.id }, {...req.body, _id: req.params.id })
-                        .then((sauce) => {
-                            sauce.likes++;
-                            sauce.usersLiked.push(req.body.userId);
-                            res.status(201).json({ message: "Note prise en compte" })
-                        })
-                        .catch((error) => res.status(500).json({ error }));
-                } else if (req.params.like === -1) {
-                    sauce.updateOne({ _id: req.params.id }, {...req.body, _id: req.params.id })
-                        .then((sauce) => {
-                            sauce.dislikes++;
-                            sauce.usersDisliked.push(req.body.userId);
-                            res.status(201).json({ message: "Note prise en compte" })
-                        })
-                        .catch((error) => res.status(500).json({ error }));
-                    // c'est donc que le statut like est à 0, il reste 2 conditions : le user avait liké, ou disliké la sauce
+            if (sauceObject.like === 1) { // pas req.body.like mais doit provenir du json
+                console.log(`likée par ${req.body.userId} !`);
+                console.log(sauce);
+
+                const usersLikedArray = sauce.usersLiked;
+                console.log(usersLikedArray);
+                const likes = sauce.likes;
+                console.log(`Nombre de likes avant mise à jour: ${usersLikedArray.length}`);
+                console.log(`Nb likes avant màj (calcul avec le nb de likes) : ${likes}`);
+
+                const rateUser = req.body.userId;
+
+                const checkUser = usersLikedArray.includes(rateUser);
+                console.log(`user qui note les sauces : ${rateUser}`);
+                console.log(`checkUser : ${checkUser}`);
+
+                // tester si le userId existe dans le tableau, ce qui fait 2 conditions :
+                if (checkUser) {
+                    console.log(`le user est déjà dans le tableau usersLiked`);
+                    res.status(401).json({ error: "Impossible de liker de nouveau !" });
                 } else {
-                    if (sauce.usersLiked.includes(req.body.userId)) {
-                        sauce.updateOne({ _id: req.params.id }, {...req.body, _id: req.params.id })
-                            .then((sauce) => {
-                                sauce.likes--;
-                                // on retire le nom du user du tableau usersLiked
+                    console.log(`Pas dans le tableau usersLiked :`);
+                    console.log(usersLikedArray);
+                    console.log(`id du user ayant liké la sauce : ${rateUser}`);
 
-                            })
-                            .catch((error) => res.status(500).json({ error }));
+                    const newUsersLikedArray = usersLikedArray.push(rateUser);
 
-                    } else if (sauce.usersDisliked.includes(req.body.userId)) {
-                        sauce.updateOne({ _id: req.params.id }, {...req.body, _id: req.params.id })
-                            .then((sauce) => {
-                                sauce.dislikes--;
-                                // on retire le nom du user du tableau usersDisliked
+                    //la fonction push renvoie la longueur du  nouveau tableau (c'est le nombre de likes mis à jour)
+                    console.log(`Nb de likes mis à jour après like du user (calcul avec .length) : ${usersLikedArray.length}`);
+                    console.log(`Nb de likes mis à jour après like du user (calcul après .push) : ${newUsersLikedArray}`);
+                    console.log(`Nouveau tableau usersLiked :`);
+                    console.log(usersLikedArray);
 
-                            })
-                            .catch((error) => res.status(500).json({ error }));
-
-                    } else {
-                        res.status(500).json({ error })
-                    }
-
+                    sauce.updateOne({ _id: req.params.id }, { likes: newUsersLikedArray /* ne marche pas mieux avec usersLikedArray.length*/ , usersLiked: usersLikedArray })
+                        .then(() => {
+                            console.log(sauce);
+                            // PROBLEME : le nombre de likes reste à 0
+                            res.status(201).json({ message: "Note prise en compte" })
+                        })
+                        .catch((error) => res.status(500).json({ error }));
                 }
 
             }
-
         })
-        .catch((error) => res.status(404).json({ message: "Sauce non trouvee !" }))
-
-
-    if (req.body.like === -1) {
-
-    }
-
+        .catch((error) => res.status(404).json({ error: "sauce non trouvée" }));
 }
-
-/*
-
-//Lorsqu'un utilisateur like ou dislike une sauce, son id doit être ajouté ou retiré du tableau like ou dislike
-
-*/
