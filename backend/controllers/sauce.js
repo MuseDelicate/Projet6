@@ -152,6 +152,47 @@ exports.likeSauce = (req, res, next) => {
                         })
                         .catch((error) => res.status(500).json({ error }));
                 }
+            }
+            if (sauceObject.like === -1) {
+                console.log(`dislikée par ${req.body.userId} !`);
+                const usersDislikedArray = sauce.usersDisliked;
+                console.log(usersDislikedArray);
+                const dislikes = sauce.dislikes;
+                console.log(`Nombre de dislikes avant mise à jour: ${usersDislikedArray.length}`);
+                console.log(`Nb dislikes avant màj (calcul avec le nb de dislikes) : ${dislikes}`);
+
+                const rateUser = req.body.userId;
+
+                const checkUser = usersDislikedArray.includes(rateUser);
+                console.log(`user qui note les sauces : ${rateUser}`);
+                console.log(`checkUser : ${checkUser}`);
+
+                // tester si le userId existe dans le tableau, ce qui fait 2 conditions :
+                if (checkUser) {
+                    console.log(`le user est déjà dans le tableau usersLiked`);
+                    res.status(401).json({ error: "Impossible de liker de nouveau !" });
+                } else {
+                    console.log(`Pas dans le tableau usersDisliked :`);
+                    console.log(usersDislikedArray);
+                    console.log(`id du user ayant disliké la sauce : ${rateUser}`);
+
+                    const newUsersDislikedArray = usersDislikedArray.push(rateUser);
+
+                    //la fonction push renvoie la longueur du  nouveau tableau (c'est le nombre de dislikes mis à jour)
+                    console.log(`Nb de dislikes mis à jour après dislike du user (calcul avec .length) : ${usersDislikedArray.length}`);
+                    console.log(`Nb de dislikes mis à jour après dislike du user (calcul après .push) : ${newUsersDislikedArray}`);
+                    console.log(`Nouveau tableau usersDisliked :`);
+                    console.log(usersDislikedArray);
+
+                    sauce.updateOne({ _id: req.params.id }, { dislikes: newUsersDislikedArray /* ne marche pas mieux avec usersDislikedArray.length*/ , usersDisliked: usersDislikedArray })
+                        .then(() => {
+                            console.log(sauce);
+                            // PROBLEME : le nombre de dislikes reste à 0 ?
+                            res.status(201).json({ message: "Note prise en compte" })
+                        })
+                        .catch((error) => res.status(500).json({ error }));
+                }
+
 
             }
         })
