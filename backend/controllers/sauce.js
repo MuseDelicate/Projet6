@@ -13,10 +13,18 @@ exports.createSauce = (req, res, next) => {
     delete sauceObject._userId;
     // On créé une nouvelle instance du modèle 'Sauce'
     let sauce = new Sauce({
-        ...sauceObject,
         // on récupère le userId en utilisant le token d'authentification
         userId: req.auth.userId,
-        imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
+        name: sauceObject.name,
+        manufacturer: sauceObject.manufacturer,
+        description: sauceObject.description,
+        mainPepper: sauceObject.mainPepper,
+        imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`,
+        heat: sauceObject.heat,
+        likes: 0,
+        dislikes: 0,
+        usersLiked: [],
+        usersDisliked: [],
     });
     console.log(sauce);
     sauce.save()
@@ -43,7 +51,7 @@ exports.getOneSauce = (req, res, next) => {
         })
 }
 
-exports.modifySauce = (req, res, next) => {
+exports.modifySauce = async(req, res, next) => {
     const sauceObject = req.file ? {
         ...JSON.parse(req.body.sauce),
         imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
@@ -51,7 +59,7 @@ exports.modifySauce = (req, res, next) => {
     // supprimer les images non utilisées sur le serveur si l'image a été modifiée
     // voir ce qui est dans la requête (le body) pour voir ce qui est modifié
     delete sauceObject._userId;
-    Sauce.findOne({ _id: req.params.id })
+    await Sauce.findOne({ _id: req.params.id })
         .then((sauce) => {
             if (sauce.userId != req.auth.userId) {
                 res.status(401).json({ message: "Cette action n'est pas autorisée" });
@@ -66,9 +74,10 @@ exports.modifySauce = (req, res, next) => {
         });
 };
 
-exports.deleteSauce = (req, res, next) => {
-    // on commence par récupérer l'objet à supprimer de la base de donnée, ce qui nous retourne une promesse
-    Sauce.findOne({ _id: req.params.id })
+exports.deleteSauce = async(req, res, next) => {
+    // on commence par récupérer l'objet à supprimer de la base de donnée
+    await Sauce.findOne({ _id: req.params.id })
+        // ce qui nous retourne une promesse
         .then((sauce) => {
             // on vérifie que l'utilisateur voulant supprimer la sauce soit bien celui qui l'a créée
             if (sauce.userId != req.auth.userId) {
