@@ -108,79 +108,74 @@ exports.getAllSauces = (req, res, next) => {
         .catch(error => res.status(400).json({ error }))
 };
 
-// JSON.parse car le front envoie la requête au format json
-// faire un console.log de req.body pour voir ce qu'il contient
-exports.likeSauce = (req, res, next) => {
-    console.log('req.body :')
-    console.log(req.body);
+exports.likeSauce = async(req, res, next) => {
+    const sauceObject = req.body;
+    const like = sauceObject.like;
+    const userId = sauceObject.userId;
 
     // on commence par récupérer la sauce
-    Sauce.findOne({
+    await Sauce.findOne({
             _id: req.params.id
         })
         .then((sauce) => {
-            // l'utilisateur a liké la sauce
-            if (req.body.like === 1) {
-                console.log(`likée par ${req.body.userId} !`);
-                console.log(sauce);
+            // on définit un objet contenant les champs qu'il faudra mettre à jour selon le like ou dislike
+            let actualLike = {
+                likes: sauce.likes,
+                dislikes: sauce.dislikes,
+                usersLiked: sauce.usersLiked,
+                usersDisliked: sauce.usersDisliked
+            };
 
-                // tester si le userId existe dans le tableau, ce qui fait 2 conditions :
-                if (sauce.usersLiked.includes(req.body.userId)) {
-                    // si le user est déjà dans le tableau, il a déjà liké la saucé précédemment
-                    // donc il ne peut pas liker la même sauce plusieurs fois
-                    res.status(401).json({ error: "Impossible de liker de nouveau !" });
-                } else {
-                    // le user n'est pas dans le tableau des users ayant déjà liké la sauce
-                    sauce.usersLiked.push(req.body.userId);
-
-                    //la fonction array.push renvoie la longueur du nouveau tableau (c'est le nombre de likes mis à jour)
-                    Sauce.updateOne({ _id: req.params.id }, { likes: sauce.usersLiked.length, usersLiked: sauce.usersLiked })
-                        .then(() => {
-                            console.log(sauce);
-                            res.status(201).json({ message: "Like pris en compte" })
-                        })
-                        .catch((error) => res.status(500).json({ error }));
-                }
+            // on regarde la valeur de like envoyée par le serveur
+            switch (like) {
+                case 1: // l'utilisateur a liké la sauce
+                    if (!actualLike.usersLiked.includes(userId)) {
+                        // on vérifie que l'utilisateur n'ait pas déjà liké la sauce
+                        // si non, on ajoute son id au tableau usersLiked
+                        actualLike.usersLiked.push(userId);
+                    }
+                    break;
+                case -1:
+                    // l'utilisateur a disliké la sauce
+                    if (!actualLike.usersDisliked.includes(userId)) {
+                        // on vérifie que l'utilisateur n'ait pas déjà liké la sauce
+                        // si non, on ajoute son id au tableau usersLiked
+                        actualLike.usersDisliked.push(userId);
+                    }
+                    break;
+                case 0:
+                    // l'utilisateur a annulé son like ou son dislike
+                    // si son id est dans le tableau usersLiked, c'est qu'il avait déjà liké la sauce
+                    if (actualLike.usersLiked.includes(userId)) {
+                        // on supprime cet id du tableau usersLiked
+                        const index = actualLike.usersLiked.indexOf(userId);
+                        actualLike.usersLiked.splice(index, 1);
+                    } else {
+                        // sinon c'est qu'il est dans usersDisliked
+                        const index = actualLike.usersDisliked.indexOf(userId);
+                        actualLike.usersDisliked.splice(index, 1);
+                    }
+                    break;
+                default:
+                    break;
             }
-            if (req.body.like === -1) {
-                console.log(`dislikée par ${req.body.userId} !`);
-                console.log(sauce);
+            //La longueur de usersLiked ou usersDisliked correspond au nombre de user ayant liké ou disliké la sauce
+            actualLike.likes = actualLike.usersLiked.length;
+            actualLike.dislikes = actualLike.usersDisliked.length;
 
-                // tester si le userId existe dans le tableau, ce qui fait 2 conditions :
-                if (sauce.usersDisliked.includes(req.body.userId)) {
-                    // si le user est déjà dans le tableau, il a déjà disliké la sauce précédemment
-                    // donc il ne peut pas disliker la même sauce plusieurs fois
-                    res.status(401).json({ error: "Impossible de disliker de nouveau !" });
-                } else {
-                    Sauce.updateOne({ _id: req.params.id }, { $inc: { dislikes: 1 }, $push: { usersDisliked: req.body.userId } })
-                        .then(() => {
-                            console.log(sauce);
-                            res.status(201).json({ message: "Dislike pris en compte" })
-                        })
-                        .catch((error) => res.status(500).json({ error }));
-                }
-            }
-            if (req.body.like === 0) {
-                if (sauce.usersLiked.includes(req.body.userId)) {
-                    Sauce.updateOne({ _id: req.params.id }, { $inc: { likes: -1 }, $pull: { usersLiked: req.body.userId } })
-                        .then(() => {
-                            res.status(200).json({ message: "Annulation du like" });
-                        })
-                        .catch((error) => res.status(500).json({ error }));
-                }
-            } else if (sauce.usersDisliked.includes(req.body.userId)) {
-                Sauce.updateOne({ _id: req.params.id }, { $inc: { dislikes: -1 }, $pull: { usersDisliked: req.body.userId } })
-                    .then(() => {
-                        res.status(200).json({ message: "Annulation du dislike" });
-                    })
-                    .catch((error) => res.status(500).json({ error }));
-
-            } else {
-                res.status(500).json({ error: "on est perdus !" });
-            }
-
-
+            // on met à jour la sauce avec ces nouvelles valeurs
+            Sauce.updateOne({ _id: req.params.id }, actualLike)
+                .then(() => {
+                    res.status(201).json({ message: "Note prise en compte !" })
+                })
+                .catch((error) => {
+                    res.status(400).json({ error })
+                });
 
         })
-        .catch((error) => res.status(404).json({ error: "sauce non trouvée" }));
+        .catch((error) => {
+            res.json({ error })
+        });
+
+
 }
