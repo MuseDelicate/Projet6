@@ -1,6 +1,8 @@
+// Le module http va décoder les requêtes qu'envoie le navigateur.
 const http = require('http');
 const app = require('./app');
 
+// Cette fonction vérifie que le port fourni soit valide, et le renvoie au bon format
 const normalizePort = val => {
     const port = parseInt(val, 10);
 
@@ -16,6 +18,7 @@ const normalizePort = val => {
 const port = normalizePort(process.env.PORT ||  '3000');
 app.set('port', port);
 
+// La fonction errorHandler va chercher les potentielles erreurs, les gérer et les enregistrer dans le serveur.
 const errorHandler = error => {
     if (error.syscall !== 'listen') {
         throw error;
@@ -36,6 +39,7 @@ const errorHandler = error => {
     }
 };
 
+// Démarrage d'un serveur node
 const server = http.createServer(app);
 
 server.on('error', errorHandler);

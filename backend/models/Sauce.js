@@ -1,8 +1,11 @@
 const mongoose = require('mongoose');
 
+// fera remonter dans la console les erreurs de la bdd distante
+const mongoError = require('mongoose-errors');
+
 // Chaque sauce devra respecter ce modèle de sauce
 const sauceSchema = mongoose.Schema({
-    userId: { type: String, required: true, unique: false },
+    userId: { type: String, required: true },
     name: { type: String, required: true },
     manufacturer: { type: String, required: true },
     description: { type: String, required: true },
@@ -13,8 +16,8 @@ const sauceSchema = mongoose.Schema({
     dislikes: { type: Number, default: 0, required: false },
     usersLiked: [{ type: String, required: true }],
     usersDisliked: [{ type: String, required: true }]
-        //usersLiked: { type: [], required: false },
-        //usersDisliked: { type: [], required: false }
 });
+
+sauceSchema.plugin(mongoError);
 
 module.exports = mongoose.model('Sauce', sauceSchema);

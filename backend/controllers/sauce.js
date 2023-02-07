@@ -1,14 +1,11 @@
-const res = require('express/lib/response');
 const Sauce = require('../models/Sauce');
+
 // le "file system" nous permet de gérer des systmes de fichiers (et donc supprimer des fichiers)
 const fs = require('fs');
-const req = require('express/lib/request');
-const { json } = require('express/lib/response');
-
 
 exports.createSauce = (req, res, next) => {
+    // le corps de la requête est un objet sauce converti en chaîne, on le converti en JSON pour l'utiliser
     let sauceObject = JSON.parse(req.body.sauce);
-    console.log(sauceObject);
     // on va utiliser le userId qui vient du token d'authentification donc on ne fait pas confiance à celui envoyé par le client
     delete sauceObject._userId;
     // On créé une nouvelle instance du modèle 'Sauce'
@@ -19,27 +16,26 @@ exports.createSauce = (req, res, next) => {
         manufacturer: sauceObject.manufacturer,
         description: sauceObject.description,
         mainPepper: sauceObject.mainPepper,
+        // conversion du segment req.file.filename en URL de l'image
         imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`,
+
         heat: sauceObject.heat,
         likes: 0,
         dislikes: 0,
         usersLiked: [],
         usersDisliked: [],
     });
-    console.log(sauce);
+    // puis on enregistre la sauce
     sauce.save()
         .then(() => {
             res.status(201).json({ message: 'Sauce enregistrée !' });
-            console.log('Sauce enregistrée !');
         })
         .catch(error => {
             res.status(400).json({ error });
-            console.log(error);
         });
 };
 
 exports.getOneSauce = (req, res, next) => {
-    console.log(req.params.id);
     Sauce.findOne({
             _id: req.params.id
         })
@@ -52,17 +48,19 @@ exports.getOneSauce = (req, res, next) => {
 }
 
 exports.modifySauce = async(req, res, next) => {
+    // on regarde s'il y a une image dans la requête.
     const sauceObject = req.file ? {
+        // si oui, on parse l'image pour la traiter
         ...JSON.parse(req.body.sauce),
         imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
+            // si non, on traite simplement l'objet entrant
     } : {...req.body };
-    // supprimer les images non utilisées sur le serveur si l'image a été modifiée
-    // voir ce qui est dans la requête (le body) pour voir ce qui est modifié
     delete sauceObject._userId;
+    // puis on met à jour la sauce avec les nouvelles informations transmises dans la requête
     await Sauce.findOne({ _id: req.params.id })
         .then((sauce) => {
             if (sauce.userId != req.auth.userId) {
-                res.status(401).json({ message: "Cette action n'est pas autorisée" });
+                res.status(403).json({ message: "Cette action n'est pas autorisée" });
             } else {
                 Sauce.updateOne({ _id: req.params.id }, {...sauceObject, _id: req.params.id })
                     .then(() => res.status(200).json({ message: 'Cette sauce a bien été modifiée !' }))
@@ -81,7 +79,7 @@ exports.deleteSauce = async(req, res, next) => {
         .then((sauce) => {
             // on vérifie que l'utilisateur voulant supprimer la sauce soit bien celui qui l'a créée
             if (sauce.userId != req.auth.userId) {
-                res.status(401).json({ message: "Cette action n'est pas autorisée" });
+                res.status(403).json({ message: "Cette action n'est pas autorisée" });
             } else {
                 // on récupère le nom du fichier image pour pouvoir le supprimer avec unlink (fonction asynchrone) ...
                 const filename = sauce.imageUrl.split('/images/')[1];
