@@ -1,4 +1,5 @@
-// on appelle le fichier .env qui contient la variable MONGO-LINK, qui contient les informations de connection à la base de données.
+// on appelle le fichier .env qui contient les informations de sécurité, ici il y a la
+// variable MONGO-LINK, qui permet la connection à la base de données.
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -14,11 +15,10 @@ const app = express();
 // pour accéder au path du serveur
 const path = require('path');
 
-// Importation des 2 routeurs user et sauce
 const userRoutes = require('./routes/user');
 const sauceRoutes = require('./routes/sauce');
 
-
+// connection à la base de donnée
 mongoose.connect(process.env.MONGO_LINK, {
         useNewUrlParser: true,
         useUnifiedTopology: true
@@ -43,6 +43,7 @@ app.use((req, res, next) => {
 // gestionnaire de routage des images, de manière statique
 app.use('/images', express.static(path.join(__dirname, 'images')));
 
+// enregistrement du routeur pour toutes les demandes envoyées vers api/auth et api/sauces
 app.use('/api/auth', userRoutes);
 app.use('/api/sauces', sauceRoutes);
 

@@ -1,6 +1,6 @@
 const User = require('../models/User');
 
-// module qiu permet de crypter ('hacher' les mots de passe)
+// module qui permet de crypter ('hacher' les mots de passe)
 const bcrypt = require('bcrypt');
 
 // ce package va créer et vérifier les token d'authentification

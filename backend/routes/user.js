@@ -5,6 +5,7 @@ const router = express.Router();
 
 const userCtrl = require('../controllers/user');
 
+// routes du parcours user
 router.post('/signup', userCtrl.signup);
 router.post('/login', userCtrl.login);
 

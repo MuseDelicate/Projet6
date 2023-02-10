@@ -8,17 +8,13 @@ exports.createSauce = (req, res, next) => {
     let sauceObject = JSON.parse(req.body.sauce);
     // on va utiliser le userId qui vient du token d'authentification donc on ne fait pas confiance à celui envoyé par le client
     delete sauceObject._userId;
-    // On créé une nouvelle instance du modèle 'Sauce'
     let sauce = new Sauce({
-        // on récupère le userId en utilisant le token d'authentification
         userId: req.auth.userId,
         name: sauceObject.name,
         manufacturer: sauceObject.manufacturer,
         description: sauceObject.description,
         mainPepper: sauceObject.mainPepper,
-        // conversion du segment req.file.filename en URL de l'image
         imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`,
-
         heat: sauceObject.heat,
         likes: 0,
         dislikes: 0,
@@ -72,33 +68,29 @@ exports.modifySauce = async(req, res, next) => {
         });
 };
 
-exports.deleteSauce = async(req, res, next) => {
-    // on commence par récupérer l'objet à supprimer de la base de donnée
-    await Sauce.findOne({ _id: req.params.id })
-        // ce qui nous retourne une promesse
-        .then((sauce) => {
+exports.deleteSauce = (req, res, next) => {
+    // on commence par récupérer la sauce à supprimer de la base de donnée
+    Sauce.findOne({ _id: req.params.id })
+        .then(sauce => {
             // on vérifie que l'utilisateur voulant supprimer la sauce soit bien celui qui l'a créée
             if (sauce.userId != req.auth.userId) {
-                res.status(403).json({ message: "Cette action n'est pas autorisée" });
+                res.status(401).json({ message: "Cette action n'est pas autorisée" });
             } else {
-                // on récupère le nom du fichier image pour pouvoir le supprimer avec unlink (fonction asynchrone) ...
+                // on récupère le nom du fichier image pour pouvoir le supprimer du système de fichier avec unlink
                 const filename = sauce.imageUrl.split('/images/')[1];
-                // une fois supprimée de la base de donnée, on peut supprimer sur le serveur
-                Sauce.deleteOne({ _id: req.params.id })
-                    .then(() => {
-                        fs.unlink(`images/${filename}`, () => {
-                            res.status(200).json({ message: "Sauce supprimée !" });
-                        })
-                    })
-                    .catch(error => {
-                        res.status(400).json({ error });
-                    })
+                // La suppression est asynchrone donc appelle un callback
+                fs.unlink(`images/${filename}`, () => {
+                    // une fois supprimée du système de fichier, on peut supprimer de la base de donnée
+                    Sauce.deleteOne({ _id: req.params.id })
+                        .then(() => { res.status(200).json({ message: "Sauce supprimée !" }) })
+                        .catch(error => res.status(401).json({ error }));
+                });
             }
         })
-        .catch((error) => {
+        .catch(error => {
             res.status(500).json({ error });
-        })
-}
+        });
+};
 
 exports.getAllSauces = (req, res, next) => {
     Sauce.find()

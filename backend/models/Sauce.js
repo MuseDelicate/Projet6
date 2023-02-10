@@ -1,6 +1,4 @@
 const mongoose = require('mongoose');
-
-// fera remonter dans la console les erreurs de la bdd distante
 const mongoError = require('mongoose-errors');
 
 // Chaque sauce devra respecter ce modèle de sauce
