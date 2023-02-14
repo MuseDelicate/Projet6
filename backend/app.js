@@ -9,7 +9,6 @@ const express = require('express');
 // import de mongoose, qui facilite les interactions avec la base de donnée MongoDB (NoSQL)
 const mongoose = require('mongoose');
 
-// Express est un framework basé sur Node, il permet
 const app = express();
 
 // pour accéder au path du serveur

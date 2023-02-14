@@ -16,6 +16,7 @@ const normalizePort = val => {
 };
 
 const port = normalizePort(process.env.PORT ||  '3000');
+// on "dit" à l'application express sur quelle port elle v atourner
 app.set('port', port);
 
 // La fonction errorHandler va chercher les potentielles erreurs, les gérer et les enregistrer dans le serveur.

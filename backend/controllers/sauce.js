@@ -1,6 +1,6 @@
 const Sauce = require('../models/Sauce');
 
-// le "file system" nous permet de gérer des systmes de fichiers (et donc supprimer des fichiers)
+// on ajoute la fonctionnalité qui nous permet d'accéder "file system" (système de fichiers) 
 const fs = require('fs');
 
 exports.createSauce = (req, res, next) => {
@@ -74,7 +74,7 @@ exports.deleteSauce = (req, res, next) => {
         .then(sauce => {
             // on vérifie que l'utilisateur voulant supprimer la sauce soit bien celui qui l'a créée
             if (sauce.userId != req.auth.userId) {
-                res.status(401).json({ message: "Cette action n'est pas autorisée" });
+                res.status(403).json({ message: "Cette action n'est pas autorisée" });
             } else {
                 // on récupère le nom du fichier image pour pouvoir le supprimer du système de fichier avec unlink
                 const filename = sauce.imageUrl.split('/images/')[1];
